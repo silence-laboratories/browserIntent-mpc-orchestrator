@@ -1,0 +1,16 @@
+import { Router } from 'express';
+import { browserLogin } from '../controllers/authController';
+import { validate } from '../middleware/validate';
+import { z } from 'zod';
+import { authLimiter } from '../middleware/rateLimit';
+
+const router = Router();
+
+router.post(
+  '/auth/browser',
+  authLimiter,
+  validate(z.object({ id_token: z.string().min(10) })),
+  browserLogin,
+);
+
+export default router;
