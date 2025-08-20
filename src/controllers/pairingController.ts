@@ -5,6 +5,7 @@ import { minutes, now } from '../utils/time';
 import { logger } from '../middleware/logger';
 
 const SESSIONS = firestore.collection('sessions');
+const KEYGEN_SESSIONS = firestore.collection('keygen_sessions');
 
 export const startPairing = async (req: Request, res: Response) => {
   const user_id = (req as any).user_id as string;           // set by JWT middleware
@@ -46,6 +47,9 @@ export const getSession = async (req: Request, res: Response) => {
     createdAt: data.createdAt,
     expiresAt: data.expiresAt,
     boundAt: data.boundAt,
+    keyId: data.keyId,
+    publicKey: data.publicKey,
+    completedAt: data.completedAt,
   });
 };
 
@@ -71,13 +75,33 @@ export const claimSession = async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'nonce_mismatch' });
   }
 
-  // atomically update
+  // atomically update session to BOUND
   await docRef.update({
     status: 'BOUND',
     deviceId,
     boundAt: new Date(now()),
   });
 
-  logger.info({ sessionId, deviceId }, 'session claimed');
-  return res.json({ ok: true });
+  // Create keygen session immediately after successful pairing
+  const keygenSessionId = newSessionId();
+  await KEYGEN_SESSIONS.doc(keygenSessionId).set({
+    userId: user_id,
+    sessionId: sessionId, // Link to pairing session
+    deviceId: deviceId,
+    status: 'PENDING',
+    createdAt: new Date(now()),
+    expiresAt: new Date(now() + minutes(10)),
+    keyId: null,
+    publicKey: null,
+    completedAt: null,
+  });
+
+  logger.info({ sessionId, deviceId, keygenSessionId }, 'session claimed and keygen started');
+  
+  return res.json({ 
+    ok: true, 
+    status: 'BOUND',
+    keygenSessionId: keygenSessionId,
+    message: 'Session claimed successfully. Key generation started.'
+  });
 };
