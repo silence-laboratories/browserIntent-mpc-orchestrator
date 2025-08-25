@@ -40,6 +40,7 @@ r.post(
       sessionId: z.string().uuid(),
       keyId: z.string(),
       publicKey: z.string(),
+      address: z.string().optional(),
     }),
   ),
   keygenDone,

@@ -66,7 +66,7 @@ export const startKeygen = async (req: Request, res: Response) => {
 
 // New endpoint: Complete keygen after pairing
 export const keygenDone = async (req: Request, res: Response) => {
-  const { sessionId, keyId, publicKey } = req.body;
+  const { sessionId, keyId, publicKey, address } = req.body;
   const user_id = (req as any).user_id as string;
 
   logger.info({
@@ -74,6 +74,7 @@ export const keygenDone = async (req: Request, res: Response) => {
     sessionId,
     keyId,
     publicKey: publicKey ? `${publicKey.substring(0, 20)}...` : 'null',
+    address: address ? `${address.substring(0, 20)}...` : 'null',
     userId: user_id,
     url: req.url,
     method: req.method
@@ -100,6 +101,7 @@ export const keygenDone = async (req: Request, res: Response) => {
       status: 'COMPLETED',
       keyId: keyId,
       publicKey: publicKey,
+      address: address,
       completedAt: new Date(now()),
     });
 
@@ -108,6 +110,7 @@ export const keygenDone = async (req: Request, res: Response) => {
       status: 'COMPLETE',
       keyId: keyId,
       publicKey: publicKey,
+      address: address,
       completedAt: new Date(now()),
     });
 
@@ -117,7 +120,8 @@ export const keygenDone = async (req: Request, res: Response) => {
       ok: true, 
       message: 'Key generation completed successfully',
       keyId: keyId,
-      publicKey: publicKey
+      publicKey: publicKey,
+      address: address
     });
   } catch (error) {
     logger.error(error, 'Failed to complete keygen');

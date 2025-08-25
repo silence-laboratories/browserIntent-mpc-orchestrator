@@ -49,6 +49,7 @@ export const getSession = async (req: Request, res: Response) => {
     boundAt: data.boundAt,
     keyId: data.keyId,
     publicKey: data.publicKey,
+    address: data.address,
     completedAt: data.completedAt,
   });
 };
