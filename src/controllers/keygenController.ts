@@ -114,14 +114,33 @@ export const keygenDone = async (req: Request, res: Response) => {
       completedAt: new Date(now()),
     });
 
-    logger.info({ sessionId, keyId, userId: user_id }, 'Keygen completed');
+    // Create wallet document in wallets collection
+    await firestore.collection('wallets').doc(keyId).set({
+      id: keyId,
+      keyId: keyId,
+      publicKey: publicKey,
+      address: address,
+      deviceId: keygenData.deviceId, // This is crucial for FCM notifications
+      userId: user_id,
+      name: `Wallet ${keyId.substring(0, 8)}`,
+      description: 'Generated wallet',
+      tags: ['generated'],
+      createdAt: new Date(now()),
+      updatedAt: new Date(now()),
+    });
+
+    logger.info({ sessionId, keyId, deviceId: keygenData.deviceId, userId: user_id }, 'Keygen completed and wallet created');
     
     return res.json({ 
       ok: true, 
       message: 'Key generation completed successfully',
-      keyId: keyId,
-      publicKey: publicKey,
-      address: address
+      wallet: {
+        id: keyId,
+        keyId: keyId,
+        publicKey: publicKey,
+        address: address,
+        deviceId: keygenData.deviceId
+      }
     });
   } catch (error) {
     logger.error(error, 'Failed to complete keygen');

@@ -3,12 +3,15 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
+import { createServer } from 'http';
 import { config } from './config';
 import authRoutes from './routes/auth';
 import { logger } from './middleware/logger';
 import path from 'path';
 import pairingRoutes from './routes/pairing';
 import keygenRoutes from './routes/keygen';
+import transactionRoutes from './routes/transaction';
+import notificationRoutes from './routes/notification';
 
 const app = express();
 
@@ -90,6 +93,8 @@ app.get('/health', (req, res) => {
 app.use('/api', authRoutes);
 app.use('/api', pairingRoutes);
 app.use('/api', keygenRoutes);
+app.use('/api', transactionRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Error handling middleware
 app.use((err: any, req: any, res: any, _next: any) => {
@@ -116,6 +121,9 @@ app.use((err: any, req: any, res: any, _next: any) => {
 // Serve static files from the project root directory
 app.use(express.static(path.join(__dirname, '..')));
 
-app.listen(config.port, () => {
+// Create HTTP server
+const server = createServer(app);
+
+server.listen(config.port, () => {
   logger.info(`Orchestrator running on port ${config.port}`);
 });
