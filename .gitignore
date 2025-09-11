@@ -6,7 +6,7 @@
 .env.development
 .env.test
 .env.production
-.env.example
+# .env.example - Keep this file in version control as a template
 
 # Firebase credentials
 broswerintent-mpc-wallet-firebase-admin.json

@@ -1,5 +1,7 @@
 import * as dotenv from 'dotenv-safe';
-dotenv.config();
+dotenv.config({
+  allowEmptyValues: true
+});
 
 export const config = {
   port: Number(process.env.PORT) || 3010,
