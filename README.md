@@ -1,6 +1,6 @@
 # BrowserIntent MPC Orchestrator
 
-A secure Node.js/Express orchestrator service for managing Multi-Party Computation (MPC) wallet operations between browser and mobile applications. This service handles authentication, device pairing, and key generation workflows for the BrowserIntent MPC wallet system.
+A secure Node.js/Express orchestrator service for managing MPC wallet operations between browser and mobile applications. This service handles authentication, device pairing, and key generation workflows for the BrowserIntent MPC wallet system.
 
 ## 🚀 Features
 
@@ -32,7 +32,7 @@ A secure Node.js/Express orchestrator service for managing Multi-Party Computati
 
 1. **Clone the repository**
    ```bash
-   git clone <repository-url>
+   git clone 
    cd BrowserIntent-mpc-orchestrator
    ```
 
@@ -41,33 +41,26 @@ A secure Node.js/Express orchestrator service for managing Multi-Party Computati
    npm install
    ```
 
-3. **Set up environment variables**
-   ```bash
-   cp .env.example .env
-   ```
 
 4. **Configure your `.env` file**
    ```env
-   # Server Configuration
-   PORT=8080
+   PORT=3010
    CORS_ORIGIN=http://localhost:3000
-   
-   # JWT Configuration
+   NODE_ENV=development
    JWT_SECRET=your-super-secret-jwt-key-here
    JWT_TTL=24h
-   
    # Firebase Configuration
-   GOOGLE_APPLICATION_CREDENTIALS=./path/to/your/firebase-admin.json
-   FIREBASE_PROJECT_ID=your-firebase-project-id
-   
-   # Optional: Server URL for keygen
-   SERVER_URL=http://localhost:8080
+   PROJECT_ID=broswerintent-mpc-wallet
+   PRIVATE_KEY_ID=your_private_key_id
+   PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nyour_private_key_here\n-----END PRIVATE KEY-----\n"
+   CLIENT_EMAIL=firebase-adminsdk-fbsvc@broswerintent-mpc-wallet.iam.gserviceaccount.com
+   CLIENT_ID=your_client_id
+   SERVER_URL=http://localhost:3010
    ```
 
 5. **Set up Firebase credentials**
    - Download your Firebase service account key from Google Cloud Console
-   - Place it in a secure location (not in the repository)
-   - Update `GOOGLE_APPLICATION_CREDENTIALS` in your `.env` file
+   - Extract the values from the JSON file and set them as environment variables
 
 ## 🚀 Running the Application
 
@@ -82,11 +75,16 @@ npm run build
 npm start
 ```
 
-The server will start on `http://localhost:8080` (or the port specified in your `.env` file).
+The server will start on `http://localhost:3010` (or the port specified in your `.env` file).
 
-## 📚 API Documentation
+## 📚 Complete API Documentation
 
-### Authentication Endpoints
+### Health Check
+```http
+GET /health
+```
+
+### Authentication Endpoints (`/api/auth/*`)
 
 #### Browser Login
 ```http
@@ -114,7 +112,7 @@ POST /api/auth/refresh
 Authorization: Bearer <jwt_token>
 ```
 
-### Device Pairing Endpoints
+### Device Pairing Endpoints (`/api/*`)
 
 #### Start Pairing Session
 ```http
@@ -141,7 +139,7 @@ Content-Type: application/json
 }
 ```
 
-### Key Generation Endpoints
+### Key Generation Endpoints (`/api/*`)
 
 #### Start Key Generation
 ```http
@@ -176,13 +174,12 @@ Content-Type: application/json
 {
   "sessionId": "uuid",
   "keyId": "generated_key_id",
-  "publicKey": "generated_public_key"
+  "publicKey": "generated_public_key",
+  "address": "wallet_address"
 }
 ```
 
-### Notification Endpoints
-
-#### Get Notifications
+#### Get Notifications (Phone)
 ```http
 GET /api/notifications
 Authorization: Bearer <phone_jwt_token>
@@ -194,31 +191,170 @@ POST /api/notifications/:notificationId/read
 Authorization: Bearer <phone_jwt_token>
 ```
 
-## 🔒 Security Features
+### Transaction Endpoints (`/api/transactions/*`)
 
-### Authentication & Authorization
-- Firebase Authentication integration
-- JWT token-based session management
-- Separate tokens for browser and phone clients
-- Token refresh mechanism
+#### Create Transaction
+```http
+POST /api/transactions
+Authorization: Bearer <browser_jwt_token>
+Content-Type: application/json
 
-### Rate Limiting
-- Configurable rate limits on all endpoints
-- Prevents abuse and brute force attacks
+{
+  "walletId": "wallet_id",
+  "to": "recipient_address",
+  "value": "0.1",
+  "data": "0x",
+  "gasLimit": "21000",
+  "expiresAt": "2024-01-01T00:00:00Z"
+}
+```
 
-### Input Validation
-- Zod schema validation for all inputs
-- Type-safe request handling
+#### Get All Transactions
+```http
+GET /api/transactions
+Authorization: Bearer <browser_jwt_token>
+```
 
-### CORS Protection
-- Configurable CORS origins
-- Support for local development and mobile apps
-- Secure credential handling
+#### Get Specific Transaction
+```http
+GET /api/transactions/:transactionId
+Authorization: Bearer <browser_jwt_token>
+```
 
-### Security Headers
-- Helmet.js for security headers
-- Content Security Policy (CSP)
-- Protection against common web vulnerabilities
+#### Get Transaction Status
+```http
+GET /api/transactions/:transactionId/status
+Authorization: Bearer <browser_jwt_token>
+```
+
+#### Approve Transaction
+```http
+POST /api/transactions/:transactionId/approve
+Authorization: Bearer <phone_jwt_token>
+Content-Type: application/json
+
+{
+  "transactionHash": "0x..."
+}
+```
+
+#### Reject Transaction
+```http
+POST /api/transactions/:transactionId/reject
+Authorization: Bearer <phone_jwt_token>
+```
+
+### Notification Management Endpoints (`/api/notifications/*`)
+
+#### Register FCM Token (Phone)
+```http
+POST /api/notifications/register-token
+Authorization: Bearer <phone_jwt_token>
+Content-Type: application/json
+
+{
+  "deviceToken": "fcm_device_token",
+  "deviceId": "device_id",
+  "deviceInfo": {
+    "platform": "ios",
+    "version": "1.0.0"
+  }
+}
+```
+
+#### Unregister FCM Token (Phone)
+```http
+POST /api/notifications/unregister-token
+Authorization: Bearer <phone_jwt_token>
+Content-Type: application/json
+
+{
+  "deviceId": "device_id"
+}
+```
+
+#### Get Device Tokens
+```http
+GET /api/notifications/devices
+Authorization: Bearer <phone_jwt_token>
+```
+
+#### Register Browser FCM Token
+```http
+POST /api/notifications/register-browser-token
+Authorization: Bearer <phone_jwt_token>
+Content-Type: application/json
+
+{
+  "browserDeviceId": "browser_device_id",
+  "browserFCMToken": "browser_fcm_token",
+  "phoneDeviceId": "phone_device_id"
+}
+```
+
+#### Test Notification (Development Only)
+```http
+POST /api/notifications/test
+Content-Type: application/json
+
+{
+  "deviceToken": "fcm_token",
+  "message": "test message"
+}
+```
+
+#### Test Notification with Auth (Browser)
+```http
+POST /api/notifications/test-notification
+Authorization: Bearer <browser_jwt_token>
+Content-Type: application/json
+
+{
+  "message": "test message"
+}
+```
+
+### Test Endpoints (Development Only)
+
+#### Test Transaction Endpoint
+```http
+POST /api/transactions/test
+Content-Type: application/json
+
+{
+  "test": "data"
+}
+```
+
+#### Test Transaction with Auth
+```http
+POST /api/transactions/test-auth
+Authorization: Bearer <browser_jwt_token>
+Content-Type: application/json
+
+{
+  "test": "data"
+}
+```
+
+## 🔧 Environment Variables
+
+### Required Environment Variables
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `PORT` | Server port | `3010` |
+| `CORS_ORIGIN` | Allowed CORS origin | `http://localhost:3000` |
+| `NODE_ENV` | Environment mode | `development` or `production` |
+| `JWT_SECRET` | JWT signing secret | `your-super-secret-jwt-key-here` |
+| `JWT_TTL` | JWT token lifetime | `24h` |
+| `PROJECT_ID` | Firebase project ID | `broswerintent-mpc-wallet` |
+| `PRIVATE_KEY_ID` | Firebase private key ID | `abc123...` |
+| `PRIVATE_KEY` | Firebase private key | `-----BEGIN PRIVATE KEY-----\n...` |
+| `CLIENT_EMAIL` | Firebase client email | `firebase-adminsdk-fbsvc@...` |
+| `CLIENT_ID` | Firebase client ID | `123456789...` |
+| `SERVER_URL` | Server URL for keygen | `http://localhost:3010` |
+
 
 ## 🏗️ Project Structure
 
@@ -234,17 +370,6 @@ src/
 ```
 
 
-
-## 📝 Logging
-
-The application uses Pino for structured logging with the following levels:
-- `debug`: Development debugging information
-- `info`: General application information
-- `warn`: Warning messages
-- `error`: Error messages
-
-Logs are formatted for development and production environments.
-
 ## 🧪 Development
 
 ### Available Scripts
@@ -255,18 +380,6 @@ npm run build    # Build TypeScript to JavaScript
 npm start        # Start production server
 npm test         # Run tests (not implemented yet)
 ```
-
-## 🚨 Security Considerations
-
-1. **Never commit sensitive files**: The `.gitignore` is configured to exclude:
-   - Environment files (`.env*`)
-   - Firebase credentials (`*-firebase-admin.json`)
-   - Service account keys
-
-2. **Use strong JWT secrets**: Generate a cryptographically secure random string for `JWT_SECRET`
-
-3. **Secure Firebase credentials**: Store service account keys in a secure location outside the repository
-
 
 
 ## 🔄 Version History

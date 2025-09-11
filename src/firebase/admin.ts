@@ -1,18 +1,27 @@
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
-import fs from 'fs';
-import path from 'path';
+
 
 // Load Firebase service account from JSON file
-const serviceAccountPath = path.join(__dirname, '..', '..', 'broswerintent-mpc-wallet-firebase-admin.json');
-
 try {
-  const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+  const serviceAccount={
+    "type": "service_account",
+    "project_id": "broswerintent-mpc-wallet",
+    "private_key_id": process.env.PRIVATE_KEY_ID,
+    "private_key": process.env.PRIVATE_KEY,
+    "client_email": process.env.CLIENT_EMAIL,
+    "client_id": process.env.CLIENT_ID,
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+    "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40broswerintent-mpc-wallet.iam.gserviceaccount.com",
+    "universe_domain": "googleapis.com"
+  };
   
   initializeApp({
-    credential: cert(serviceAccount),
-    projectId: serviceAccount.project_id
+    credential: cert(serviceAccount as any),
+    projectId: process.env.PROJECT_ID
   });
   
   console.log('Firebase Admin SDK initialized successfully');
