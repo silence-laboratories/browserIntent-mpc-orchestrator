@@ -120,10 +120,16 @@ POST /api/start_pairing
 Authorization: Bearer <browser_jwt_token>
 ```
 
-#### Get Session Details
+#### Get Session Details (Browser)
 ```http
 GET /api/session/:sessionId
-Authorization: Bearer <jwt_token>
+Authorization: Bearer <browser_jwt_token>
+```
+
+#### Get Session Status (Phone)
+```http
+GET /api/session/:sessionId/status
+Authorization: Bearer <phone_jwt_token>
 ```
 
 #### Claim Session (Phone)
@@ -141,16 +147,22 @@ Content-Type: application/json
 
 ### Key Generation Endpoints (`/api/*`)
 
-#### Start Key Generation
+#### Start Key Generation (Browser)
 ```http
 POST /api/start_keygen
-Authorization: Bearer <jwt_token>
+Authorization: Bearer <browser_jwt_token>
+```
+
+#### Start Key Generation (Phone)
+```http
+POST /api/start_keygen_phone
+Authorization: Bearer <phone_jwt_token>
 ```
 
 #### Get Key Generation Session
 ```http
 GET /api/keygen/:sessionId
-Authorization: Bearer <jwt_token>
+Authorization: Bearer <browser_jwt_token>
 ```
 
 #### Complete Key Generation
@@ -289,6 +301,18 @@ Content-Type: application/json
   "browserDeviceId": "browser_device_id",
   "browserFCMToken": "browser_fcm_token",
   "phoneDeviceId": "phone_device_id"
+}
+```
+
+#### Send Transaction Notification (Browser)
+```http
+POST /api/notifications/transaction
+Authorization: Bearer <browser_jwt_token>
+Content-Type: application/json
+
+{
+  "walletId": "wallet_id",
+  "transactionId": "transaction_id"
 }
 ```
 
