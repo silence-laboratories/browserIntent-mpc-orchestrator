@@ -21,7 +21,7 @@ try {
   
   initializeApp({
     credential: cert(serviceAccount as any),
-    projectId: process.env.PROJECT_ID
+    projectId: "broswerintent-mpc-wallet"
   });
   
   console.log('Firebase Admin SDK initialized successfully');
