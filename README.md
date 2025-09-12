@@ -49,12 +49,8 @@ A secure Node.js/Express orchestrator service for managing MPC wallet operations
    NODE_ENV=development
    JWT_SECRET=your-super-secret-jwt-key-here
    JWT_TTL=24h
-   # Firebase Configuration
-   PROJECT_ID=broswerintent-mpc-wallet
-   PRIVATE_KEY_ID=your_private_key_id
-   PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nyour_private_key_here\n-----END PRIVATE KEY-----\n"
-   CLIENT_EMAIL=firebase-adminsdk-fbsvc@broswerintent-mpc-wallet.iam.gserviceaccount.com
-   CLIENT_ID=your_client_id
+# Firebase Configuration
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/broswerintent-mpc-wallet-firebase-admin.json
    SERVER_URL=http://localhost:3010
    ```
 
@@ -372,11 +368,7 @@ Content-Type: application/json
 | `NODE_ENV` | Environment mode | `development` or `production` |
 | `JWT_SECRET` | JWT signing secret | `your-super-secret-jwt-key-here` |
 | `JWT_TTL` | JWT token lifetime | `24h` |
-| `PROJECT_ID` | Firebase project ID | `broswerintent-mpc-wallet` |
-| `PRIVATE_KEY_ID` | Firebase private key ID | `abc123...` |
-| `PRIVATE_KEY` | Firebase private key | `-----BEGIN PRIVATE KEY-----\n...` |
-| `CLIENT_EMAIL` | Firebase client email | `firebase-adminsdk-fbsvc@...` |
-| `CLIENT_ID` | Firebase client ID | `123456789...` |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Path to Firebase JSON file | `/path/to/firebase-admin.json` |
 | `SERVER_URL` | Server URL for keygen | `http://localhost:3010` |
 
 
