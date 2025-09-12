@@ -6,8 +6,8 @@ import * as path from 'path';
 // Initialize Firebase Admin SDK
 try {
   // Method 1: Use JSON file path from environment variable
-  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  if (process.env.FIREBASE_CREDENTIALS_PATH) {
+    const serviceAccountPath = process.env.FIREBASE_CREDENTIALS_PATH;
     initializeApp({
       credential: cert(serviceAccountPath),
       projectId: "broswerintent-mpc-wallet"
