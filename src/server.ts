@@ -15,7 +15,7 @@ import notificationRoutes from './routes/notification';
 
 const app = express();
 
-// Configure CORS properly for credentials and React Native
+// Configure CORS properly for credentials and frontend domains
 app.use(
   cors({
     origin: function (origin, callback) {
@@ -35,6 +35,18 @@ app.use(
         return callback(null, true);
       }
       
+      // Allow specific frontend domains
+      const allowedOrigins = [
+        'https://paired-key-vault.demo.silencelaboratories.com',
+        'http://localhost:3000',
+        'http://localhost:3010',
+        'http://localhost:3011'
+      ];
+      
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      
       // Allow specific origins from config
       if (config.corsOrigin !== '*' && origin === config.corsOrigin) {
         return callback(null, true);
@@ -50,6 +62,7 @@ app.use(
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Origin', 'Accept'],
+    optionsSuccessStatus: 200
   }),
 );
 
