@@ -199,6 +199,20 @@ POST /api/notifications/:notificationId/read
 Authorization: Bearer <phone_jwt_token>
 ```
 
+### Wallet Endpoints (`/api/wallets/*`)
+
+#### Get User Wallets
+```http
+GET /api/wallets
+Authorization: Bearer <browser_jwt_token>
+```
+
+#### Get Wallet Count
+```http
+GET /api/wallets/count
+Authorization: Bearer <browser_jwt_token>
+```
+
 ### Transaction Endpoints (`/api/transactions/*`)
 
 #### Create Transaction

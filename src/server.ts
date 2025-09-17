@@ -12,6 +12,7 @@ import pairingRoutes from './routes/pairing';
 import keygenRoutes from './routes/keygen';
 import transactionRoutes from './routes/transaction';
 import notificationRoutes from './routes/notification';
+import walletRoutes from './routes/wallet';
 
 const app = express();
 
@@ -107,6 +108,7 @@ app.use('/api', authRoutes);
 app.use('/api', pairingRoutes);
 app.use('/api', keygenRoutes);
 app.use('/api', transactionRoutes);
+app.use('/api', walletRoutes);
 app.use('/api/notifications', notificationRoutes);
 
 // Error handling middleware
