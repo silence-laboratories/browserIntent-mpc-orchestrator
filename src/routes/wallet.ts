@@ -1,13 +1,13 @@
 import express from 'express';
 import { getUserWallets, getWalletCount } from '../controllers/walletController';
-import { requireBrowserJWT } from '../middleware/authJWT';
+import { requireFirebaseAuth } from '../middleware/authFirebase';
 
 const router = express.Router();
 
-// Get all wallets for the authenticated user
-router.get('/wallets', requireBrowserJWT, getUserWallets);
+// Get all wallets for the authenticated user (now using Firebase ID token)
+router.get('/wallets', requireFirebaseAuth, getUserWallets);
 
-// Get wallet count for the authenticated user (lighter endpoint)
-router.get('/wallets/count', requireBrowserJWT, getWalletCount);
+// Get wallet count for the authenticated user (now using Firebase ID token)
+router.get('/wallets/count', requireFirebaseAuth, getWalletCount);
 
 export default router;
