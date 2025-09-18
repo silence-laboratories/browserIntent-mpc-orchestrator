@@ -31,7 +31,6 @@ export const getUserWallets = async (req: Request, res: Response) => {
     const walletsSnapshot = await firestore
       .collection('wallets')
       .where('userId', '==', userId)
-      .orderBy('createdAt', 'desc')
       .get();
 
     const wallets = walletsSnapshot.docs.map(doc => {
