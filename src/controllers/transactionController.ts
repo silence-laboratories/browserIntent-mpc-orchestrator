@@ -35,6 +35,31 @@ interface Wallet {
   name: string;
   description?: string;
   tags?: string[];
+  agentToken?: string;
+  agentCreatedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface AgentRequest {
+  id: string;
+  agentToken: string;
+  walletId: string;
+  walletAddress: string;
+  hash: string;
+  message: string;
+  payload: string;
+  amount: string;
+  product: string;
+  chainId: string;
+  status: 'PENDING' | 'SIGNED' | 'REJECTED' | 'EXPIRED' | 'FAILED';
+  signature?: string;
+  error?: string;
+  deviceId: string;
+  userId: string;
+  notificationSent: boolean;
+  notificationSentAt?: string;
+  expiresAt: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -613,5 +638,593 @@ export const getTransactionStatus = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error getting transaction status:', error);
     res.status(500).json({ error: 'internal_error' });
+  }
+};
+
+export const registerAgent = async (req: Request, res: Response) => {
+  try {
+    const { agentToken } = req.body;
+    const userId = (req as any).user_id;
+
+    logger.info({
+      message: 'registerAgent endpoint called',
+      userId,
+      agentToken,
+      url: req.url,
+      method: req.method
+    });
+
+    // Validate required fields
+    if (!agentToken) {
+      return res.status(400).json({
+        error: 'missing_required_fields',
+        message: 'agentToken is required'
+      });
+    }
+
+    // Get user's wallet
+    const walletsSnapshot = await firestore
+      .collection('wallets')
+      .where('userId', '==', userId)
+      .get();
+
+    if (walletsSnapshot.empty) {
+      return res.status(404).json({
+        error: 'wallet_not_found',
+        message: 'No wallet found for user'
+      });
+    }
+
+    // Use the first wallet (assuming single wallet per user)
+    const walletDoc = walletsSnapshot.docs[0];
+    const wallet = walletDoc.data() as Wallet;
+
+    // Check if agentToken is already in use
+    const existingAgentQuery = await firestore
+      .collection('wallets')
+      .where('agentToken', '==', agentToken)
+      .get();
+
+    if (!existingAgentQuery.empty) {
+      return res.status(400).json({
+        error: 'agent_token_already_exists',
+        message: 'Agent token is already in use'
+      });
+    }
+
+    // Update wallet with agentToken
+    await firestore
+      .collection('wallets')
+      .doc(wallet.id)
+      .update({
+        agentToken: agentToken,
+        agentCreatedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+
+    logger.info({
+      message: 'Agent registered successfully',
+      userId,
+      walletId: wallet.id,
+      walletAddress: wallet.address,
+      agentToken
+    });
+
+    res.status(201).json({
+      success: true,
+      agentToken: agentToken,
+      walletAddress: wallet.address,
+      walletId: wallet.id
+    });
+  } catch (error) {
+    logger.error({
+      message: 'registerAgent failed',
+      error: error instanceof Error ? error.message : 'Unknown error',
+      userId: (req as any).user_id
+    });
+    
+    res.status(500).json({ 
+      error: 'internal_error',
+      message: 'Failed to register agent'
+    });
+  }
+};
+
+export const agentSignRequest = async (req: Request, res: Response) => {
+  try {
+    const { agentToken, hash, message, payload, amount, product, chainId } = req.body;
+
+    logger.info({
+      message: 'agentSignRequest endpoint called',
+      agentToken,
+      hash: hash ? hash.substring(0, 20) + '...' : 'none',
+      amount,
+      product,
+      chainId,
+      url: req.url,
+      method: req.method
+    });
+
+    // Validate required fields
+    if (!agentToken) {
+      return res.status(400).json({
+        error: 'missing_required_fields',
+        message: 'agentToken is required'
+      });
+    }
+
+    // Find wallet by agentToken
+    const walletQuery = await firestore
+      .collection('wallets')
+      .where('agentToken', '==', agentToken)
+      .get();
+
+    if (walletQuery.empty) {
+      return res.status(404).json({
+        error: 'agent_not_found',
+        message: 'Agent token not found or not registered'
+      });
+    }
+
+    const walletDoc = walletQuery.docs[0];
+    const wallet = walletDoc.data() as Wallet;
+
+    // Set request expiration (2 minutes from now)
+    const expiresAt = new Date(Date.now() + 2 * 60 * 1000).toISOString();
+
+    // Create agent request record
+    const agentRequest: AgentRequest = {
+      id: `agent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      agentToken,
+      walletId: wallet.id,
+      walletAddress: wallet.address,
+      hash: hash || '',
+      message: message || '',
+      payload: payload || '',
+      amount: amount || '0',
+      product: product || 'Unknown',
+      chainId: chainId || '1',
+      status: 'PENDING',
+      deviceId: wallet.deviceId,
+      userId: wallet.userId,
+      notificationSent: false,
+      expiresAt,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    // Save agent request to Firestore
+    await firestore
+      .collection('agent_requests')
+      .doc(agentRequest.id)
+      .set(agentRequest);
+
+    // Send notification to phone app via Firebase Cloud Messaging
+    let notificationSuccess = false;
+    try {
+      console.log('🔍 [AGENT] Looking up phone device token for agent request', {
+        agentRequestId: agentRequest.id,
+        walletId: wallet.id,
+        phoneDeviceId: wallet.deviceId,
+        timestamp: new Date().toISOString()
+      });
+
+      // Get the device token for this wallet
+      const deviceTokenDoc = await firestore
+        .collection('device_tokens')
+        .doc(wallet.deviceId)
+        .get();
+
+      if (deviceTokenDoc.exists) {
+        const deviceData = deviceTokenDoc.data();
+        const deviceToken = deviceData?.deviceToken;
+        
+        console.log('📱 [AGENT] Phone device token found', {
+          agentRequestId: agentRequest.id,
+          walletId: wallet.id,
+          phoneDeviceId: wallet.deviceId,
+          hasDeviceToken: !!deviceToken,
+          isActive: deviceData?.isActive,
+          deviceInfo: deviceData?.deviceInfo,
+          timestamp: new Date().toISOString()
+        });
+        
+        if (deviceToken && deviceData?.isActive) {
+          console.log('🚀 [AGENT] Sending FCM notification to phone for agent request', {
+            agentRequestId: agentRequest.id,
+            walletId: wallet.id,
+            phoneDeviceId: wallet.deviceId,
+            deviceToken: deviceToken.substring(0, 20) + '...',
+            amount,
+            product,
+            chainId,
+            timestamp: new Date().toISOString()
+          });
+
+          // Send FCM notification to phone for agent request
+          notificationSuccess = await simpleNotificationService.sendAgentSignRequest(
+            deviceToken,
+            {
+              agentRequestId: agentRequest.id,
+              hash,
+              message,
+              amount,
+              product,
+              chainId,
+              walletAddress: wallet.address
+            }
+          );
+
+          if (notificationSuccess) {
+            // Update agent request with notification status
+            await firestore
+              .collection('agent_requests')
+              .doc(agentRequest.id)
+              .update({
+                notificationSent: true,
+                notificationSentAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+              });
+
+            console.log('✅ [AGENT] FCM notification sent successfully and agent request updated', {
+              agentRequestId: agentRequest.id,
+              walletId: wallet.id,
+              phoneDeviceId: wallet.deviceId,
+              notificationSent: true,
+              timestamp: new Date().toISOString()
+            });
+          } else {
+            console.error('❌ [AGENT] Failed to send FCM notification for agent request', {
+              agentRequestId: agentRequest.id,
+              walletId: wallet.id,
+              phoneDeviceId: wallet.deviceId,
+              timestamp: new Date().toISOString()
+            });
+          }
+        } else {
+          console.warn('⚠️ [AGENT] No active device token found for wallet', {
+            agentRequestId: agentRequest.id,
+            walletId: wallet.id,
+            phoneDeviceId: wallet.deviceId,
+            hasDeviceToken: !!deviceToken,
+            isActive: deviceData?.isActive,
+            timestamp: new Date().toISOString()
+          });
+        }
+      } else {
+        console.warn('⚠️ [AGENT] No device token document found for wallet', {
+          agentRequestId: agentRequest.id,
+          walletId: wallet.id,
+          phoneDeviceId: wallet.deviceId,
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch (notificationError) {
+      console.error('❌ [AGENT] Failed to send notification - Error occurred', {
+        agentRequestId: agentRequest.id,
+        walletId: wallet.id,
+        phoneDeviceId: wallet.deviceId,
+        error: notificationError instanceof Error ? notificationError.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+      // Don't fail the request if notification fails
+    }
+
+    // Wait for phone response (synchronous)
+    const startTime = Date.now();
+    const timeout = 120000; // 2 minutes timeout
+    
+    while (Date.now() - startTime < timeout) {
+      // Check if request has been processed
+      const updatedRequestDoc = await firestore
+        .collection('agent_requests')
+        .doc(agentRequest.id)
+        .get();
+
+      if (updatedRequestDoc.exists) {
+        const updatedRequest = updatedRequestDoc.data() as AgentRequest;
+        
+        if (updatedRequest.status === 'SIGNED' || updatedRequest.status === 'REJECTED') {
+          console.log('✅ [AGENT] Agent request processed', {
+            agentRequestId: agentRequest.id,
+            status: updatedRequest.status,
+            hasSignature: !!updatedRequest.signature,
+            timestamp: new Date().toISOString()
+          });
+
+          return res.json({
+            success: true,
+            status: updatedRequest.status,
+            signature: updatedRequest.signature,
+            error: updatedRequest.error,
+            agentRequestId: agentRequest.id
+          });
+        }
+      }
+
+      // Wait 1 second before checking again
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    // Timeout reached
+    await firestore
+      .collection('agent_requests')
+      .doc(agentRequest.id)
+      .update({
+        status: 'EXPIRED',
+        error: 'Request timeout - no response from phone',
+        updatedAt: new Date().toISOString()
+      });
+
+    console.log('⏰ [AGENT] Agent request timed out', {
+      agentRequestId: agentRequest.id,
+      timeout: timeout,
+      timestamp: new Date().toISOString()
+    });
+
+    return res.status(408).json({
+      success: false,
+      error: 'timeout',
+      message: 'Request timeout - no response from phone',
+      agentRequestId: agentRequest.id
+    });
+
+  } catch (error) {
+    logger.error({
+      message: 'agentSignRequest failed',
+      error: error instanceof Error ? error.message : 'Unknown error',
+      agentToken: req.body.agentToken
+    });
+    
+    res.status(500).json({ 
+      error: 'internal_error',
+      message: 'Failed to process agent sign request'
+    });
+  }
+};
+
+export const approveAgentRequest = async (req: Request, res: Response) => {
+  try {
+    const { agentRequestId } = req.params;
+    const { signature } = req.body;
+    const userId = (req as any).user_id;
+
+    if (!signature) {
+      return res.status(400).json({
+        error: 'missing_required_fields',
+        message: 'signature is required'
+      });
+    }
+
+    // Get agent request
+    const agentRequestDoc = await firestore
+      .collection('agent_requests')
+      .doc(agentRequestId)
+      .get();
+
+    if (!agentRequestDoc.exists) {
+      return res.status(404).json({
+        error: 'agent_request_not_found',
+        message: 'Agent request not found'
+      });
+    }
+
+    const agentRequest = agentRequestDoc.data() as AgentRequest;
+
+    // Verify user owns this agent request
+    if (agentRequest.userId !== userId) {
+      return res.status(403).json({
+        error: 'unauthorized',
+        message: 'Not authorized to approve this request'
+      });
+    }
+
+    if (agentRequest.status !== 'PENDING') {
+      return res.status(400).json({
+        error: 'invalid_status',
+        message: `Agent request is ${agentRequest.status.toLowerCase()}, cannot approve`
+      });
+    }
+
+    // Check if request has expired
+    if (new Date(agentRequest.expiresAt) < new Date()) {
+      // Update request status to expired
+      await firestore
+        .collection('agent_requests')
+        .doc(agentRequestId)
+        .update({
+          status: 'EXPIRED',
+          error: 'Agent request expired',
+          updatedAt: new Date().toISOString()
+        });
+
+      return res.status(400).json({
+        error: 'agent_request_expired',
+        message: 'Agent request has expired'
+      });
+    }
+
+    // Update agent request status with the signature
+    await firestore
+      .collection('agent_requests')
+      .doc(agentRequestId)
+      .update({
+        status: 'SIGNED',
+        signature: signature,
+        signedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+
+    console.log('Agent request approved:', { agentRequestId, signature: signature.substring(0, 20) + '...' });
+    res.json({ 
+      success: true,
+      agentRequest: {
+        ...agentRequest,
+        status: 'SIGNED',
+        signature: signature,
+        signedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('Error approving agent request:', error);
+    res.status(500).json({ error: 'internal_error' });
+  }
+};
+
+export const rejectAgentRequest = async (req: Request, res: Response) => {
+  try {
+    const { agentRequestId } = req.params;
+    const { reason } = req.body;
+    const userId = (req as any).user_id;
+
+    // Get agent request
+    const agentRequestDoc = await firestore
+      .collection('agent_requests')
+      .doc(agentRequestId)
+      .get();
+
+    if (!agentRequestDoc.exists) {
+      return res.status(404).json({
+        error: 'agent_request_not_found',
+        message: 'Agent request not found'
+      });
+    }
+
+    const agentRequest = agentRequestDoc.data() as AgentRequest;
+
+    // Verify user owns this agent request
+    if (agentRequest.userId !== userId) {
+      return res.status(403).json({
+        error: 'unauthorized',
+        message: 'Not authorized to reject this request'
+      });
+    }
+
+    if (agentRequest.status !== 'PENDING') {
+      return res.status(400).json({
+        error: 'invalid_status',
+        message: `Agent request is ${agentRequest.status.toLowerCase()}, cannot reject`
+      });
+    }
+
+    // Check if request has expired
+    if (new Date(agentRequest.expiresAt) < new Date()) {
+      // Update request status to expired
+      await firestore
+        .collection('agent_requests')
+        .doc(agentRequestId)
+        .update({
+          status: 'EXPIRED',
+          error: 'Agent request expired',
+          updatedAt: new Date().toISOString()
+        });
+
+      return res.status(400).json({
+        error: 'agent_request_expired',
+        message: 'Agent request has expired'
+      });
+    }
+
+    // Update agent request status
+    await firestore
+      .collection('agent_requests')
+      .doc(agentRequestId)
+      .update({
+        status: 'REJECTED',
+        error: reason || 'Agent request rejected by user',
+        rejectedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+
+    console.log('Agent request rejected:', { agentRequestId, reason });
+    res.json({ 
+      success: true,
+      agentRequest: {
+        ...agentRequest,
+        status: 'REJECTED',
+        error: reason || 'Agent request rejected by user',
+        rejectedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('Error rejecting agent request:', error);
+    res.status(500).json({ error: 'internal_error' });
+  }
+};
+
+export const getAgentStatus = async (req: Request, res: Response) => {
+  try {
+    const { agentToken } = req.body;
+
+    logger.info({
+      message: 'getAgentStatus endpoint called',
+      agentToken,
+      url: req.url,
+      method: req.method
+    });
+
+    // Validate required fields
+    if (!agentToken) {
+      return res.status(400).json({
+        error: 'missing_required_fields',
+        message: 'agentToken is required'
+      });
+    }
+
+    // Find wallet by agentToken
+    const walletQuery = await firestore
+      .collection('wallets')
+      .where('agentToken', '==', agentToken)
+      .get();
+
+    if (walletQuery.empty) {
+      logger.info({
+        message: 'Agent token not found',
+        agentToken
+      });
+
+      return res.json({
+        success: false,
+        valid: false,
+        message: 'Agent token not found or not registered'
+      });
+    }
+
+    const walletDoc = walletQuery.docs[0];
+    const wallet = walletDoc.data() as Wallet;
+
+    logger.info({
+      message: 'Agent token found',
+      agentToken,
+      walletId: wallet.id,
+      walletAddress: wallet.address,
+      userId: wallet.userId
+    });
+
+    res.json({
+      success: true,
+      valid: true,
+      agentToken: agentToken,
+      walletAddress: wallet.address,
+      walletId: wallet.id,
+      userId: wallet.userId,
+      agentCreatedAt: wallet.agentCreatedAt
+    });
+
+  } catch (error) {
+    logger.error({
+      message: 'getAgentStatus failed',
+      error: error instanceof Error ? error.message : 'Unknown error',
+      agentToken: req.body.agentToken
+    });
+    
+    res.status(500).json({ 
+      error: 'internal_error',
+      message: 'Failed to check agent status'
+    });
   }
 };

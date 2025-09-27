@@ -8,6 +8,16 @@ interface TransactionNotificationData {
   expiresAt?: string;
 }
 
+interface AgentSignRequestData {
+  agentRequestId: string;
+  hash: string;
+  message: string;
+  amount: string;
+  product: string;
+  chainId: string;
+  walletAddress: string;
+}
+
 interface NotificationResult {
   success: boolean;
   messageId?: string;
@@ -324,6 +334,87 @@ class SimpleNotificationService {
         error: error instanceof Error ? error.message : 'Unknown error' 
       }));
     }
+  }
+
+  /**
+   * Send agent sign request notification
+   */
+  async sendAgentSignRequest(deviceToken: string, agentData: AgentSignRequestData): Promise<boolean> {
+    console.log('📱 [FCM] Preparing agent sign request notification for phone', {
+      agentRequestId: agentData.agentRequestId,
+      hash: agentData.hash.substring(0, 20) + '...',
+      amount: agentData.amount,
+      product: agentData.product,
+      chainId: agentData.chainId,
+      walletAddress: agentData.walletAddress,
+      deviceToken: deviceToken.substring(0, 20) + '...',
+      timestamp: new Date().toISOString()
+    });
+
+    const amount = agentData.amount && agentData.amount !== '0' ? this.formatEther(agentData.amount) : '0';
+    const shortWalletAddress = `${agentData.walletAddress.substring(0, 8)}...${agentData.walletAddress.substring(-6)}`;
+    const product = agentData.product || 'Unknown';
+    const chainId = agentData.chainId || '1';
+    const message = agentData.message || 'Sign request';
+
+    const notificationData = {
+      type: 'agent_sign_request',
+      agentRequestId: agentData.agentRequestId,
+      hash: agentData.hash || '',
+      message: agentData.message || '',
+      amount: agentData.amount || '0',
+      product: agentData.product || 'Unknown',
+      chainId: agentData.chainId || '1',
+      walletAddress: agentData.walletAddress || '',
+      action: 'approve_reject_agent',
+    };
+
+    // Create notification body based on available data
+    let notificationBody = `Approve signing request`;
+    if (product !== 'Unknown') {
+      notificationBody += ` for ${product}`;
+    }
+    if (amount !== '0') {
+      notificationBody += ` (${amount} ETH)`;
+    }
+    if (chainId !== '1') {
+      notificationBody += ` on chain ${chainId}`;
+    }
+
+    console.log('📋 [FCM] Agent sign request notification details', {
+      agentRequestId: agentData.agentRequestId,
+      shortWalletAddress,
+      amount: `${amount} ETH`,
+      product,
+      chainId,
+      notificationTitle: 'Agent Sign Request',
+      notificationBody
+    });
+
+    const result = await this.sendNotification(
+      deviceToken,
+      'Agent Sign Request',
+      notificationBody,
+      notificationData
+    );
+
+    if (result.success) {
+      console.log('✅ [FCM] Agent sign request notification sent to phone successfully', {
+        agentRequestId: agentData.agentRequestId,
+        messageId: result.messageId,
+        deviceToken: deviceToken.substring(0, 20) + '...',
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      console.error('❌ [FCM] Failed to send agent sign request notification to phone', {
+        agentRequestId: agentData.agentRequestId,
+        error: result.error,
+        deviceToken: deviceToken.substring(0, 20) + '...',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    return result.success;
   }
 }
 

@@ -5,7 +5,12 @@ import {
   getTransaction, 
   getTransactionStatus,
   approveTransaction, 
-  rejectTransaction 
+  rejectTransaction,
+  registerAgent,
+  agentSignRequest,
+  approveAgentRequest,
+  rejectAgentRequest,
+  getAgentStatus
 } from '../controllers/transactionController';
 import { requireBrowserJWT, requirePhoneJWT } from '../middleware/authJWT';
 
@@ -41,5 +46,18 @@ router.get('/transactions/:transactionId/status', requireBrowserJWT, getTransact
 // Transaction Actions (Phone App)
 router.post('/transactions/:transactionId/approve', requirePhoneJWT, approveTransaction);
 router.post('/transactions/:transactionId/reject', requirePhoneJWT, rejectTransaction);
+
+// Agent Registration (Browser App)
+router.post('/register-agent', requireBrowserJWT, registerAgent);
+
+// Agent Sign Request (No authentication - uses agentToken)
+router.post('/agent-sign-request', agentSignRequest);
+
+// Agent Status Check (No authentication - uses agentToken)
+router.post('/agent-status', getAgentStatus);
+
+// Agent Request Actions (Phone App)
+router.post('/agent-requests/:agentRequestId/approve', requirePhoneJWT, approveAgentRequest);
+router.post('/agent-requests/:agentRequestId/reject', requirePhoneJWT, rejectAgentRequest);
 
 export default router;

@@ -41,7 +41,9 @@ app.use(
         'https://paired-key-vault.demo.silencelaboratories.com',
         'http://localhost:3000',
         'http://localhost:3010',
-        'http://localhost:3011'
+        'http://localhost:3011',
+        'http://127.0.0.1:8000', // Agent server
+        'http://localhost:8000'  // Agent server alternative
       ];
       
       if (allowedOrigins.includes(origin)) {
